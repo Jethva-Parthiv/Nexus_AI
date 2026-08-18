@@ -1,11 +1,30 @@
 package com.nexusai.auth_service.service;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.nexusai.auth_service.dto.AuthResponse;
+import com.nexusai.auth_service.dto.LoginRequest;
+import com.nexusai.auth_service.dto.RegisterRequest;
+import com.nexusai.auth_service.entity.Role;
+import com.nexusai.auth_service.entity.User;
+import com.nexusai.auth_service.exception.UserAlreadyExistsException;
+import com.nexusai.auth_service.repository.RoleRepository;
+import com.nexusai.auth_service.repository.UserRepository;
+import com.nexusai.auth_service.security.JwtUtils;
 
 @Service
 public class AuthService {
- 
+
     @Autowired
     private UserRepository userRepository;
 
@@ -21,26 +40,21 @@ public class AuthService {
     @Autowired
     private JwtUtils jwtUtils;
 
-
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        // Check if username already exists
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new UserAlreadyExistsException("Username already exists: " + request.getUsername());
         }
 
-        // Check if email already exists
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserAlreadyExistsException("Email already exists: " + request.getEmail());
         }
 
-        // Create new user
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
-        // Assign default role
         Role userRole = roleRepository.findByName("ROLE_USER")
                 .orElseGet(() -> {
                     Role role = new Role();
@@ -61,7 +75,6 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        // Authenticate user
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
@@ -71,7 +84,6 @@ public class AuthService {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // Generate JWT token
         String token = jwtUtils.generateToken(authentication);
 
         return AuthResponse.builder()
@@ -80,5 +92,4 @@ public class AuthService {
                 .message("Login successful")
                 .build();
     }
-    
 }

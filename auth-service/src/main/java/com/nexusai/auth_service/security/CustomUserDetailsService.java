@@ -1,7 +1,7 @@
 package com.nexusai.auth_service.security;
 
-import com.nexusai.auth_service.entity.User;
-import com.nexusai.auth_service.repository.UserRepository;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -9,11 +9,11 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.stream.Collectors;
-
+import com.nexusai.auth_service.entity.User;
+import com.nexusai.auth_service.repository.UserRepository;
 
 @Service
-public class CustomUserDetailsService {
+public class CustomUserDetailsService implements UserDetailsService {
 
     @Autowired
     private UserRepository userRepository;
@@ -31,5 +31,4 @@ public class CustomUserDetailsService {
                         .collect(Collectors.toList()))
                 .build();
     }
-    
 }

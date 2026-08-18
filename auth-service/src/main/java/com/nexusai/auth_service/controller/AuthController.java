@@ -1,17 +1,18 @@
 package com.nexusai.auth_service.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import com.nexusai.auth_service.service.AuthService;
+
+import com.nexusai.auth_service.dto.AuthResponse;
+import com.nexusai.auth_service.dto.LoginRequest;
 import com.nexusai.auth_service.dto.RegisterRequest;
+import com.nexusai.auth_service.service.AuthService;
 
 import jakarta.validation.Valid;
-
-import org.springframework.http.ResponseEntity;
-import com.nexusai.auth_service.dto.AuthResponse;
 
 @RestController
 @RequestMapping("/auth")
