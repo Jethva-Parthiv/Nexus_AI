@@ -26,7 +26,7 @@ public class GatewayServiceApplication {
                         request -> request.path().startsWith("/api/auth/"),
                         http()
                 )
-                .before(uri("lb://auth-service"))
+                .before(uri("http://localhost:8081"))
                 .before(stripPrefix(1))
                 .build();
     }
