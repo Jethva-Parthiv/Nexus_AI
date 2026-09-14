@@ -1,17 +1,24 @@
 package com.nexusai.routing_service.service;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
 import com.nexusai.routing_service.client.ProviderServiceClient;
 import com.nexusai.routing_service.dto.ProviderCandidate;
 import com.nexusai.routing_service.dto.ProviderRequest;
 import com.nexusai.routing_service.dto.ProviderResponse;
 import com.nexusai.routing_service.exception.AllProvidersFailedException;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-import java.util.Set;
+import com.nexusai.routing_service.exception.NoProviderAvailableException;
 
 @Service
 public class FallbackService {
+
+    private static final Logger log = LoggerFactory.getLogger(FallbackService.class);
 
     private static final Set<String> RETRYABLE_STATUSES = Set.of(
             "RATE_LIMITED", "TIMEOUT", "PROVIDER_DOWN", "INVALID_API_KEY", "UNKNOWN_ERROR"
@@ -26,29 +33,45 @@ public class FallbackService {
     public ProviderResponse executeWithFallback(
             String requestId, Long userId, String prompt, List<ProviderCandidate> candidates) {
 
-        StringBuilder attemptedLog = new StringBuilder();
+        if (candidates == null || candidates.isEmpty()) {
+            log.warn("requestId={} no eligible providers configured for userId={}", requestId, userId);
+            throw new NoProviderAvailableException("No eligible providers for userId=" + userId);
+        }
+
+        Set<String> attempted = new HashSet<>();
 
         for (ProviderCandidate candidate : candidates) {
             if (!candidate.enabled()) {
+                log.debug("requestId={} skipping disabled provider={}", requestId, candidate.provider());
+                continue;
+            }
+            if (!attempted.add(candidate.provider())) {
+                log.debug("requestId={} skipping duplicate provider={}", requestId, candidate.provider());
                 continue;
             }
 
+            long startedAt = System.currentTimeMillis();
             ProviderRequest providerRequest =
                     new ProviderRequest(requestId, userId, candidate.provider(), prompt);
             ProviderResponse response = providerServiceClient.generate(providerRequest);
+            long elapsed = System.currentTimeMillis() - startedAt;
 
-            attemptedLog.append(candidate.provider()).append("=").append(response.status()).append("; ");
+            log.info("requestId={} provider={} status={} elapsedMs={}",
+                    requestId, candidate.provider(), response.status(), elapsed);
 
             if (response.success() && "SUCCESS".equals(response.status())) {
-                return response; // stop immediately on success
+                log.info("requestId={} succeeded on provider={}", requestId, candidate.provider());
+                return response;
             }
 
             if (!RETRYABLE_STATUSES.contains(response.status())) {
-                return response; // non-retryable — controlled failure, no further attempts
+                log.warn("requestId={} non-retryable failure provider={} status={}",
+                        requestId, candidate.provider(), response.status());
+                return response;
             }
-            // retryable — continue to next candidate
         }
 
-        throw new AllProvidersFailedException("All providers failed. Attempts: " + attemptedLog);
+        log.error("requestId={} all providers failed, attempted={}", requestId, attempted);
+        throw new AllProvidersFailedException("All providers failed for requestId=" + requestId);
     }
 }
