@@ -9,28 +9,28 @@ import com.nexusai.routing_service.dto.ChatRequest;
 import com.nexusai.routing_service.dto.ChatResponse;
 import com.nexusai.routing_service.dto.ProviderCandidate;
 import com.nexusai.routing_service.dto.ProviderResponse;
+import com.nexusai.routing_service.client.ProviderConfigClient;
 
 @Service
 public class RoutingService {
 
     private final FallbackService fallbackService;
+    private final ProviderConfigClient providerConfigClient;
 
-    public RoutingService(FallbackService fallbackService) {
+    public RoutingService(FallbackService fallbackService, ProviderConfigClient providerConfigClient) {
         this.fallbackService = fallbackService;
+        this.providerConfigClient = providerConfigClient;
     }
 
-    public ChatResponse handleChat(ChatRequest request) {
-        String requestId = "REQ-" + UUID.randomUUID();
+    public ChatResponse handleChat(ChatRequest request, String requestId, Long userId) {
+        String effectiveRequestId = (requestId != null && !requestId.isBlank())
+                ? requestId
+                : "REQ-" + UUID.randomUUID();
 
-        // TODO Phase 6: replace with GET /internal/providers/eligible?userId={userId}
-        List<ProviderCandidate> candidates = List.of(
-                new ProviderCandidate("GEMINI", 1, true),
-                new ProviderCandidate("GROQ", 2, true),
-                new ProviderCandidate("OPENROUTER", 3, true)
-        );
+        List<ProviderCandidate> candidates = providerConfigClient.getEligibleProviders(userId);
 
         ProviderResponse result = fallbackService.executeWithFallback(
-                requestId, null, request.prompt(), candidates);
+                effectiveRequestId, userId, request.prompt(), candidates);
 
         return new ChatResponse(
                 result.success(),
