@@ -1,10 +1,14 @@
 package com.nexusai.routing_service.service;
 
-import com.nexusai.routing_service.client.ProviderServiceClient;
-import com.nexusai.routing_service.dto.*;
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import com.nexusai.routing_service.client.ProviderServiceClient;
+import com.nexusai.routing_service.dto.ChatRequest;
+import com.nexusai.routing_service.dto.ChatResponse;
+import com.nexusai.routing_service.dto.ProviderRequest;
+import com.nexusai.routing_service.dto.ProviderResponse;
 
 @Service
 public class RoutingService {
@@ -18,7 +22,6 @@ public class RoutingService {
     public ChatResponse handleChat(ChatRequest request) {
         String requestId = "REQ-" + UUID.randomUUID();
 
-        // Phase 3: single hardcoded provider, no fallback yet
         ProviderRequest providerRequest = new ProviderRequest(
                 requestId,
                 null,

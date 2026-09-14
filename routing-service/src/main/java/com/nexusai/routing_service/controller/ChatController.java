@@ -1,11 +1,16 @@
 package com.nexusai.routing_service.controller;
 
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.nexusai.routing_service.dto.ChatRequest;
 import com.nexusai.routing_service.dto.ChatResponse;
 import com.nexusai.routing_service.service.RoutingService;
+
 import jakarta.validation.Valid;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/chat")
