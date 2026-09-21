@@ -1,39 +1,43 @@
 package com.nexusai.routing_service.service;
 
-import com.nexusai.routing_service.client.ProviderServiceClient;
-import com.nexusai.routing_service.dto.*;
+import java.util.List;
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 
-import java.util.UUID;
+import com.nexusai.routing_service.dto.ChatRequest;
+import com.nexusai.routing_service.dto.ChatResponse;
+import com.nexusai.routing_service.dto.ProviderCandidate;
+import com.nexusai.routing_service.dto.ProviderResponse;
+import com.nexusai.routing_service.client.ProviderConfigClient;
 
 @Service
 public class RoutingService {
 
-    private final ProviderServiceClient providerServiceClient;
+    private final FallbackService fallbackService;
+    private final ProviderConfigClient providerConfigClient;
 
-    public RoutingService(ProviderServiceClient providerServiceClient) {
-        this.providerServiceClient = providerServiceClient;
+    public RoutingService(FallbackService fallbackService, ProviderConfigClient providerConfigClient) {
+        this.fallbackService = fallbackService;
+        this.providerConfigClient = providerConfigClient;
     }
 
-    public ChatResponse handleChat(ChatRequest request) {
-        String requestId = "REQ-" + UUID.randomUUID();
+    public ChatResponse handleChat(ChatRequest request, String requestId, Long userId) {
+        String effectiveRequestId = (requestId != null && !requestId.isBlank())
+                ? requestId
+                : "REQ-" + UUID.randomUUID();
 
-        // Phase 3: single hardcoded provider, no fallback yet
-        ProviderRequest providerRequest = new ProviderRequest(
-                requestId,
-                null,
-                "GEMINI",
-                request.prompt()
-        );
+        List<ProviderCandidate> candidates = providerConfigClient.getEligibleProviders(userId);
 
-        ProviderResponse providerResponse = providerServiceClient.generate(providerRequest);
+        ProviderResponse result = fallbackService.executeWithFallback(
+                effectiveRequestId, userId, request.prompt(), candidates);
 
         return new ChatResponse(
-                providerResponse.success(),
-                providerResponse.provider(),
-                providerResponse.model(),
-                providerResponse.response(),
-                providerResponse.latencyMs()
+                result.success(),
+                result.provider(),
+                result.model(),
+                result.response(),
+                result.latencyMs()
         );
     }
 }
