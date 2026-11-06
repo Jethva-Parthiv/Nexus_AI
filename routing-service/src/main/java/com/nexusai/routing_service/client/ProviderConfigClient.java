@@ -12,9 +12,10 @@ public class ProviderConfigClient {
     private final WebClient webClient;
 
     private static final List<ProviderCandidate> DEFAULT_CANDIDATES = List.of(
-            new ProviderCandidate("GEMINI", 1, true),
-            new ProviderCandidate("GROQ", 2, true),
-            new ProviderCandidate("OPENROUTER", 3, true)
+            new ProviderCandidate("MOCK", 1, true),
+            new ProviderCandidate("GEMINI", 2, true),
+            new ProviderCandidate("GROQ", 3, true),
+            new ProviderCandidate("OPENROUTER", 4, true)
     );
 
     public ProviderConfigClient(WebClient providerServiceWebClient) {

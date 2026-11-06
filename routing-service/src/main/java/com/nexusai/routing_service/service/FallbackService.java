@@ -32,6 +32,11 @@ public class FallbackService {
 
     public ProviderResponse executeWithFallback(
             String requestId, Long userId, String prompt, List<ProviderCandidate> candidates) {
+        return executeWithFallback(requestId, userId, prompt, null, candidates);
+    }
+
+    public ProviderResponse executeWithFallback(
+            String requestId, Long userId, String prompt, String model, List<ProviderCandidate> candidates) {
 
         if (candidates == null || candidates.isEmpty()) {
             log.warn("requestId={} no eligible providers configured for userId={}", requestId, userId);
@@ -52,7 +57,7 @@ public class FallbackService {
 
             long startedAt = System.currentTimeMillis();
             ProviderRequest providerRequest =
-                    new ProviderRequest(requestId, userId, candidate.provider(), prompt);
+                    new ProviderRequest(requestId, userId, candidate.provider(), model, prompt);
             ProviderResponse response = providerServiceClient.generate(providerRequest);
             long elapsed = System.currentTimeMillis() - startedAt;
 
