@@ -18,11 +18,14 @@ import { sendChatCompletion } from '../api/routingApi.js'
 
 const STRATEGIES = [
   { value: 'auto', label: 'Auto (Intelligent Priority Fallback)' },
-  { value: 'latency', label: 'Lowest Latency (Fastest Responder)' },
-  { value: 'cost', label: 'Cost Optimized (Economy First)' },
+  { value: 'mock', label: 'Direct: Mock Provider (Instant / Zero-Cost)' },
   { value: 'gemini', label: 'Direct: Google Gemini' },
   { value: 'groq', label: 'Direct: Groq LPU' },
   { value: 'openrouter', label: 'Direct: OpenRouter' },
+  { value: 'nvidia', label: 'Direct: NVIDIA NIM' },
+  { value: 'cerebras', label: 'Direct: Cerebras' },
+  { value: 'latency', label: 'Lowest Latency (Fastest Responder)' },
+  { value: 'cost', label: 'Cost Optimized (Economy First)' },
 ]
 
 const PROMPT_PRESETS = [

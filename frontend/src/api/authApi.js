@@ -1,9 +1,7 @@
-// REAL — calls auth-service directly at VITE_AUTH_API_URL.
-// Gateway routing isn't configured yet, so we bypass :8080 for now.
-// Once gateway-service adds route rules for /auth/**, only this base URL changes.
+// REAL — calls auth-service through gateway-service at VITE_AUTH_API_URL.
 import axios from 'axios'
 
-const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8081'
+const AUTH_API_URL = import.meta.env.VITE_AUTH_API_URL || 'http://localhost:8080/api'
 
 const client = axios.create({
   baseURL: AUTH_API_URL,

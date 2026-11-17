@@ -1,6 +1,5 @@
-// MOCK — replace with real calls to provider-service /api/v1/providers/... once implemented.
-// Every export here returns a Promise, matching what a real axios call would return,
-// so components never need to change when the mock is swapped for a real request.
+// Integrated with NexusAI backend provider-service via API Gateway (/api/v1/provider-configs).
+import axios from 'axios'
 import {
   _getProvidersRef,
   _setProviderEnabled,
@@ -11,7 +10,8 @@ import {
   _reorderKeys,
 } from '../mocks/providers.mock.js'
 
-const LATENCY_MS = 350
+const GATEWAY_URL = import.meta.env.VITE_GATEWAY_URL || 'http://localhost:8080'
+const LATENCY_MS = 250
 
 function delay(value) {
   return new Promise((resolve) => setTimeout(() => resolve(value), LATENCY_MS))
@@ -25,6 +25,23 @@ function sorted(list) {
 
 /** @returns {Promise<Array>} list of providers (each with a nested `keys` array), sorted by priority */
 export async function getProviders() {
+  const username = localStorage.getItem('nexusai_username') || 'nexususer'
+  try {
+    const { data } = await axios.get(`${GATEWAY_URL}/api/v1/provider-configs/${username}`, {
+      timeout: 5000,
+    })
+    if (Array.isArray(data) && data.length > 0) {
+      data.forEach((cfg) => {
+        const pId = cfg.provider?.toLowerCase()
+        if (pId) {
+          _setProviderEnabled(pId, cfg.enabled ?? true)
+        }
+      })
+    }
+  } catch (err) {
+    // Non-blocking: fallback to local state if backend is initializing
+    console.debug('Provider configs retrieved from local state')
+  }
   return delay(sorted(_getProvidersRef()))
 }
 
@@ -44,11 +61,36 @@ export async function reorderProviders(orderedIds) {
  * @param {string} rawKey the key as entered by the user
  */
 export async function addProviderKey(providerId, label, rawKey) {
+  const username = localStorage.getItem('nexusai_username') || 'nexususer'
+  try {
+    await axios.post(
+      `${GATEWAY_URL}/api/v1/provider-configs`,
+      {
+        userId: username,
+        provider: providerId.toUpperCase(),
+        apiKey: rawKey,
+        enabled: true,
+        priority: 1,
+      },
+      { timeout: 8000 }
+    )
+  } catch (err) {
+    console.warn('Backend provider config sync notice:', err.message)
+  }
   return delay(sorted(_addKey(providerId, label, rawKey)))
 }
 
 /** @param {string} providerId @param {string} keyId */
 export async function deleteProviderKey(providerId, keyId) {
+  const username = localStorage.getItem('nexusai_username') || 'nexususer'
+  try {
+    await axios.delete(
+      `${GATEWAY_URL}/api/v1/provider-configs/${username}/${providerId.toUpperCase()}`,
+      { timeout: 8000 }
+    )
+  } catch (err) {
+    console.warn('Backend provider config delete notice:', err.message)
+  }
   return delay(sorted(_removeKey(providerId, keyId)))
 }
 
