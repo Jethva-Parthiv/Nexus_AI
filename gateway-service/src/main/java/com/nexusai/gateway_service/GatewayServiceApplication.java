@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
+import static org.springframework.cloud.gateway.server.mvc.filter.AfterFilterFunctions.removeResponseHeader;
 import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.stripPrefix;
 import static org.springframework.cloud.gateway.server.mvc.filter.BeforeFilterFunctions.uri;
 import static org.springframework.cloud.gateway.server.mvc.handler.GatewayRouterFunctions.route;
@@ -40,6 +41,8 @@ public class GatewayServiceApplication {
                 )
                 .before(uri(authServiceUrl))
                 .before(stripPrefix(1))
+                .after(removeResponseHeader("Access-Control-Allow-Origin"))
+                .after(removeResponseHeader("Access-Control-Allow-Credentials"))
                 .build();
     }
 
@@ -54,6 +57,8 @@ public class GatewayServiceApplication {
                         http()
                 )
                 .before(uri(routingServiceUrl))
+                .after(removeResponseHeader("Access-Control-Allow-Origin"))
+                .after(removeResponseHeader("Access-Control-Allow-Credentials"))
                 .build();
     }
 
@@ -68,6 +73,8 @@ public class GatewayServiceApplication {
                         http()
                 )
                 .before(uri(providerServiceUrl))
+                .after(removeResponseHeader("Access-Control-Allow-Origin"))
+                .after(removeResponseHeader("Access-Control-Allow-Credentials"))
                 .build();
     }
 }
