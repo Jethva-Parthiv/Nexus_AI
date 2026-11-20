@@ -1,37 +1,94 @@
-// MOCK — replace with real call to routing-service GET /api/v1/requests once implemented.
-// Row shape mirrors Section 11: request_id, provider, model, status, latency_ms, tokens, fallback_used, timestamp.
+// User-Scoped Audit Log Store
+// Captures live Playground requests and feeds the Dashboard and Request Log tables
 
-const PROVIDERS = ['Gemini', 'Groq', 'OpenRouter', 'NVIDIA', 'Cerebras']
-const STATUSES = ['success', 'success', 'success', 'failed']
-
-function pad(n) {
-  return String(n).padStart(2, '0')
+function getActiveUsername() {
+  return localStorage.getItem('nexusai_username') || 'nexususer'
 }
 
-function isoMinutesAgo(mins) {
-  return new Date(Date.now() - mins * 60_000).toISOString()
+function getStorageKey() {
+  return 'nexusai_audit_logs_' + getActiveUsername()
 }
 
-function buildRow(i) {
-  const provider = PROVIDERS[Math.floor(Math.random() * PROVIDERS.length)]
-  const status = STATUSES[Math.floor(Math.random() * STATUSES.length)]
-  const fallbackUsed = Math.random() < 0.3
-  return {
-    requestId: `req_${(1000 + i).toString(36)}${pad(i)}`,
-    provider,
-    model: `${provider.toLowerCase()}-default`,
-    status,
-    latencyMs: Math.floor(150 + Math.random() * 1400),
-    tokens: Math.floor(30 + Math.random() * 500),
-    fallbackUsed,
-    timestamp: isoMinutesAgo(i * 7 + Math.floor(Math.random() * 5)),
-  }
+function buildSampleDemoRows() {
+  const PROVIDERS = ['Gemini', 'Groq', 'OpenRouter']
+  const now = Date.now()
+  return [
+    {
+      requestId: 'req_demo_01',
+      provider: 'Gemini',
+      model: 'gemini-1.5-flash',
+      status: 'success',
+      latencyMs: 142,
+      tokens: 95,
+      fallbackUsed: true,
+      timestamp: new Date(now - 3 * 60 * 1000).toISOString(),
+      prompt: 'Explain intra-provider key rotation vs cross-provider fallback',
+      trace: [
+        { provider: 'Groq', status: 429, outcome: 'failed' },
+        { provider: 'Gemini', status: 200, outcome: 'success' },
+      ],
+    },
+    {
+      requestId: 'req_demo_02',
+      provider: 'Groq',
+      model: 'llama-3.3-70b-versatile',
+      status: 'success',
+      latencyMs: 88,
+      tokens: 140,
+      fallbackUsed: false,
+      timestamp: new Date(now - 12 * 60 * 1000).toISOString(),
+      prompt: 'Extract JSON entities from user session log',
+      trace: [{ provider: 'Groq', status: 200, outcome: 'success' }],
+    },
+    {
+      requestId: 'req_demo_03',
+      provider: 'Mock',
+      model: 'mock-model-v1',
+      status: 'success',
+      latencyMs: 50,
+      tokens: 28,
+      fallbackUsed: false,
+      timestamp: new Date(now - 25 * 60 * 1000).toISOString(),
+      prompt: 'Hello NexusAI Gateway!',
+      trace: [{ provider: 'Mock', status: 200, outcome: 'success' }],
+    },
+  ]
 }
-
-const auditLogs = Array.from({ length: 42 }, (_, i) => buildRow(i)).sort(
-  (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
-)
 
 export function _getAuditLogsRef() {
-  return auditLogs
+  const user = getActiveUsername()
+  const key = getStorageKey()
+  const saved = localStorage.getItem(key)
+
+  if (saved) {
+    try {
+      return JSON.parse(saved)
+    } catch (e) {
+      // fallback
+    }
+  }
+
+  // Demo user gets starter logs
+  if (user && user.toLowerCase().includes('demo')) {
+    const sample = buildSampleDemoRows()
+    localStorage.setItem(key, JSON.stringify(sample))
+    return sample
+  }
+
+  // Real user starts clean with empty log
+  return []
+}
+
+export function _recordAuditLogRow(row) {
+  const key = getStorageKey()
+  const current = _getAuditLogsRef()
+  const updated = [row, ...current].slice(0, 200) // retain latest 200
+  localStorage.setItem(key, JSON.stringify(updated))
+  return updated
+}
+
+export function _clearAuditLogsRef() {
+  const key = getStorageKey()
+  localStorage.removeItem(key)
+  return []
 }

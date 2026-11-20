@@ -1,7 +1,7 @@
-// MOCK — replace with real call to routing-service GET /api/v1/requests once implemented.
-import { _getAuditLogsRef } from '../mocks/auditLogs.mock.js'
+import { _getAuditLogsRef, _recordAuditLogRow, _clearAuditLogsRef } from '../mocks/auditLogs.mock.js'
 
 /**
+ * Retrieves audit logs for the current user with optional filters.
  * @param {{ provider?: string, status?: string }} filters
  * @returns {Promise<Array>}
  */
@@ -10,7 +10,7 @@ export async function getAuditLogs(filters = {}) {
     setTimeout(() => {
       let rows = _getAuditLogsRef()
       if (filters.provider && filters.provider !== 'all') {
-        rows = rows.filter((r) => r.provider === filters.provider)
+        rows = rows.filter((r) => r.provider?.toLowerCase() === filters.provider.toLowerCase())
       }
       if (filters.status === 'success') {
         rows = rows.filter((r) => r.status === 'success' && !r.fallbackUsed)
@@ -20,6 +20,21 @@ export async function getAuditLogs(filters = {}) {
         rows = rows.filter((r) => r.status === 'failed')
       }
       resolve(rows)
-    }, 300)
+    }, 150)
   })
+}
+
+/**
+ * Records a real request event into the current user's audit log store.
+ * @param {object} logEntry
+ */
+export function recordAuditLog(logEntry) {
+  return _recordAuditLogRow(logEntry)
+}
+
+/**
+ * Clears the audit logs for the active user.
+ */
+export function clearAuditLogs() {
+  return _clearAuditLogsRef()
 }

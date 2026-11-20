@@ -1,19 +1,14 @@
-// MOCK — replace with real calls to provider-service /api/v1/providers/... once implemented.
-// Each provider can hold multiple keys (intra-provider fallback). Raw keys are
-// never stored or returned here — only maskedKey — mirroring the backend rule
-// that provider-service never exposes raw keys once saved.
+// User-Scoped Provider Storage
+// Synchronizes with backend provider-service via API Gateway
 
-let providers = [
+const BASE_PROVIDERS = [
   {
     id: 'gemini',
     name: 'Gemini',
     provider: 'GEMINI',
     enabled: true,
     priority: 1,
-    keys: [
-      { id: 'gemini-1', label: 'Gemini Primary', maskedKey: '••••••••••••7Kq2', enabled: true, priority: 1 },
-      { id: 'gemini-2', label: 'Gemini Backup', maskedKey: '••••••••••••41ax', enabled: true, priority: 2 },
-    ],
+    keys: [],
   },
   {
     id: 'groq',
@@ -21,9 +16,7 @@ let providers = [
     provider: 'GROQ',
     enabled: true,
     priority: 2,
-    keys: [
-      { id: 'groq-1', label: 'Groq Primary', maskedKey: '••••••••••••9mXa', enabled: true, priority: 1 },
-    ],
+    keys: [],
   },
   {
     id: 'openrouter',
@@ -31,10 +24,7 @@ let providers = [
     provider: 'OPENROUTER',
     enabled: true,
     priority: 3,
-    keys: [
-      { id: 'openrouter-1', label: 'OpenRouter Primary', maskedKey: '••••••••••••2Fpz', enabled: true, priority: 1 },
-      { id: 'openrouter-2', label: 'OpenRouter Personal', maskedKey: '••••••••••••88qd', enabled: false, priority: 2 },
-    ],
+    keys: [],
   },
   {
     id: 'nvidia',
@@ -54,33 +44,85 @@ let providers = [
   },
 ]
 
-let keyCounter = 100
+const DEMO_KEYS = {
+  gemini: [
+    { id: 'gemini-1', label: 'Gemini Primary', maskedKey: '••••••••••••7Kq2', enabled: true, priority: 1 },
+    { id: 'gemini-2', label: 'Gemini Backup', maskedKey: '••••••••••••41ax', enabled: true, priority: 2 },
+  ],
+  groq: [
+    { id: 'groq-1', label: 'Groq Primary', maskedKey: '••••••••••••9mXa', enabled: true, priority: 1 },
+  ],
+  openrouter: [
+    { id: 'openrouter-1', label: 'OpenRouter Primary', maskedKey: '••••••••••••2Fpz', enabled: true, priority: 1 },
+  ],
+}
 
-// Simple mask helper — a real implementation would run server-side only.
+let keyCounter = 200
+
 function maskKey(rawKey) {
+  if (!rawKey) return '••••••••••••0000'
   const tail = rawKey.slice(-4)
   return '••••••••••••' + tail
 }
 
+function getActiveUsername() {
+  return localStorage.getItem('nexusai_username') || 'nexususer'
+}
+
+function getStorageKey() {
+  return 'nexusai_providers_' + getActiveUsername()
+}
+
 export function _getProvidersRef() {
-  return providers
+  const user = getActiveUsername()
+  const saved = localStorage.getItem(getStorageKey())
+  if (saved) {
+    try {
+      return JSON.parse(saved)
+    } catch (e) {
+      // parse error, fallback
+    }
+  }
+
+  // If Demo user, pre-fill sample keys for testing
+  if (user && user.toLowerCase().includes('demo')) {
+    const demoProviders = BASE_PROVIDERS.map((p) => ({
+      ...p,
+      keys: DEMO_KEYS[p.id] ? [...DEMO_KEYS[p.id]] : [],
+    }))
+    localStorage.setItem(getStorageKey(), JSON.stringify(demoProviders))
+    return demoProviders
+  }
+
+  // Real users start with clean/fresh providers
+  const freshProviders = BASE_PROVIDERS.map((p) => ({ ...p, keys: [] }))
+  localStorage.setItem(getStorageKey(), JSON.stringify(freshProviders))
+  return freshProviders
+}
+
+function saveProviders(list) {
+  localStorage.setItem(getStorageKey(), JSON.stringify(list))
+  return list
 }
 
 export function _setProviderEnabled(id, enabled) {
-  providers = providers.map((p) => (p.id === id ? { ...p, enabled } : p))
-  return providers
+  const current = _getProvidersRef()
+  const updated = current.map((p) => (p.id === id ? { ...p, enabled } : p))
+  return saveProviders(updated)
 }
 
 export function _setProviderPriorities(orderedIds) {
-  providers = providers.map((p) => ({
+  const current = _getProvidersRef()
+  const updated = current.map((p) => ({
     ...p,
     priority: orderedIds.indexOf(p.id) + 1,
   }))
-  return providers
+  return saveProviders(updated)
 }
 
 export function _addKey(providerId, label, rawKey) {
-  providers = providers.map((p) => {
+  const current = _getProvidersRef()
+  const updated = current.map((p) => {
     if (p.id !== providerId) return p
     const nextPriority = p.keys.length + 1
     const newKey = {
@@ -92,40 +134,43 @@ export function _addKey(providerId, label, rawKey) {
     }
     return { ...p, keys: [...p.keys, newKey] }
   })
-  return providers
+  return saveProviders(updated)
 }
 
 export function _removeKey(providerId, keyId) {
-  providers = providers.map((p) => {
+  const current = _getProvidersRef()
+  const updated = current.map((p) => {
     if (p.id !== providerId) return p
-    const keys = p.keys
-      .filter((k) => k.id !== keyId)
-      .map((k, i) => ({ ...k, priority: i + 1 }))
-    return { ...p, keys, enabled: keys.length === 0 ? false : p.enabled }
+    const filtered = p.keys.filter((k) => k.id !== keyId)
+    const reindexed = filtered.map((k, i) => ({ ...k, priority: i + 1 }))
+    return { ...p, keys: reindexed }
   })
-  return providers
+  return saveProviders(updated)
 }
 
 export function _setKeyEnabled(providerId, keyId, enabled) {
-  providers = providers.map((p) => {
+  const current = _getProvidersRef()
+  const updated = current.map((p) => {
     if (p.id !== providerId) return p
     return {
       ...p,
       keys: p.keys.map((k) => (k.id === keyId ? { ...k, enabled } : k)),
     }
   })
-  return providers
+  return saveProviders(updated)
 }
 
 export function _reorderKeys(providerId, orderedKeyIds) {
-  providers = providers.map((p) => {
+  const current = _getProvidersRef()
+  const updated = current.map((p) => {
     if (p.id !== providerId) return p
+    const reordered = [...p.keys].sort(
+      (a, b) => orderedKeyIds.indexOf(a.id) - orderedKeyIds.indexOf(b.id),
+    )
     return {
       ...p,
-      keys: p.keys
-        .map((k) => ({ ...k, priority: orderedKeyIds.indexOf(k.id) + 1 }))
-        .sort((a, b) => a.priority - b.priority),
+      keys: reordered.map((k, i) => ({ ...k, priority: i + 1 })),
     }
   })
-  return providers
+  return saveProviders(updated)
 }

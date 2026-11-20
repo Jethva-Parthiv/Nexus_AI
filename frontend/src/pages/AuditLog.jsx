@@ -15,7 +15,7 @@ import {
   ZapIcon,
 } from '../components/Icons.jsx'
 
-const PROVIDERS = ['all', 'Gemini', 'Groq', 'OpenRouter', 'NVIDIA', 'Cerebras']
+const PROVIDERS = ['all', 'Gemini', 'Groq', 'OpenRouter', 'NVIDIA', 'Cerebras', 'Mock']
 const STATUSES = [
   { value: 'all', label: 'All Statuses' },
   { value: 'success', label: 'Direct Success (200 OK)' },

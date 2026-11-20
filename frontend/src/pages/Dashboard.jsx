@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../components/Layout/DashboardLayout.jsx'
 import { getDashboardSummary } from '../api/routingApi.js'
 import { getProviders } from '../api/providerApi.js'
+import { useAuth } from '../context/AuthContext.jsx'
 import RouteTrace from '../components/RouteTrace.jsx'
 import {
   RocketIcon,
@@ -27,6 +28,7 @@ const RANGES = [
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { username } = useAuth()
   const [range, setRange] = useState('7d')
   const [summary, setSummary] = useState(null)
   const [providers, setProviders] = useState([])
@@ -54,58 +56,39 @@ export default function Dashboard() {
     loadData()
   }
 
+  function timeAgo(iso) {
+    if (!iso) return 'Just now'
+    const diffMs = Date.now() - new Date(iso).getTime()
+    const diffSec = Math.floor(diffMs / 1000)
+    if (diffSec < 60) return `${Math.max(1, diffSec)}s ago`
+    const diffMin = Math.floor(diffSec / 60)
+    if (diffMin < 60) return `${diffMin}m ago`
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return `${diffHr}h ago`
+    return new Date(iso).toLocaleDateString()
+  }
+
   const maxRequests = summary
-    ? Math.max(...summary.providerUsage.map((p) => p.requests), 1)
+    ? Math.max(...(summary.providerUsage || []).map((p) => p.requests), 1)
     : 1
 
-  // Recent simulated live activity stream with real traces
-  const recentActivities = [
-    {
-      id: 'req_live_01',
-      prompt: 'Summarize quarterly cloud infrastructure latency report',
-      model: 'gemini-1.5-pro',
-      provider: 'Gemini',
-      status: 'success',
-      latencyMs: 182,
-      tokens: 284,
-      time: '2 mins ago',
-      trace: [
-        { provider: 'Groq', status: 429, outcome: 'failed' },
-        { provider: 'Gemini', status: 200, outcome: 'success' },
-      ],
-    },
-    {
-      id: 'req_live_02',
-      prompt: 'Extract JSON entities from user telemetry payload',
-      model: 'llama-3.3-70b',
-      provider: 'Groq',
-      status: 'success',
-      latencyMs: 94,
-      tokens: 142,
-      time: '5 mins ago',
-      trace: [{ provider: 'Groq', status: 200, outcome: 'success' }],
-    },
-    {
-      id: 'req_live_03',
-      prompt: 'Draft responsive modern dashboard design tokens in CSS',
-      model: 'claude-3.5-sonnet',
-      provider: 'OpenRouter',
-      status: 'success',
-      latencyMs: 310,
-      tokens: 512,
-      time: '12 mins ago',
-      trace: [
-        { provider: 'Gemini', status: 503, outcome: 'failed' },
-        { provider: 'OpenRouter', status: 200, outcome: 'success' },
-      ],
-    },
-  ]
+  const liveActivities = (summary?.recentLogs || []).map((log) => ({
+    id: log.requestId || 'req_01',
+    prompt: log.prompt || 'Chat prompt',
+    model: log.model || 'default-model',
+    provider: log.provider || 'Gateway',
+    status: log.status || 'success',
+    latencyMs: log.latencyMs || 50,
+    tokens: log.tokens || 20,
+    time: timeAgo(log.timestamp),
+    trace: log.trace || [{ provider: log.provider || 'Gateway', status: 200, outcome: 'success' }],
+  }))
 
   return (
     <DashboardLayout title="Overview">
       <div className="page-header">
         <div className="page-header__content">
-          <h1>Gateway Analytics & Health</h1>
+          <h1>Welcome back, {username || 'Operator'}</h1>
           <p>
             Real-time proxy monitoring, multi-provider traffic distribution, and automated
             fallback circuit breakers.
@@ -407,39 +390,51 @@ export default function Dashboard() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {recentActivities.map((act) => (
-                <div
-                  key={act.id}
-                  style={{
-                    padding: '14px 16px',
-                    border: '1px solid var(--border)',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--surface)',
-                    boxShadow: 'var(--shadow-xs)',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span className="log-table__mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>
-                        {act.id}
-                      </span>
-                      <span className="badge">{act.model}</span>
-                      <span className="status-pill status-pill--success">200 OK</span>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
-                      <span>{act.latencyMs} ms</span>
-                      <span>{act.tokens} tokens</span>
-                      <span>{act.time}</span>
-                    </div>
-                  </div>
-
-                  <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                    "{act.prompt}"
+              {liveActivities.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-secondary)' }}>
+                  <p style={{ marginBottom: '14px', fontSize: '14px' }}>
+                    No requests recorded yet for this account.
                   </p>
-
-                  <RouteTrace trace={act.trace} />
+                  <button className="btn btn--primary btn--small" onClick={() => navigate('/playground')}>
+                    <RocketIcon size={14} />
+                    <span>Send a prompt in AI Playground</span>
+                  </button>
                 </div>
-              ))}
+              ) : (
+                liveActivities.map((act) => (
+                  <div
+                    key={act.id}
+                    style={{
+                      padding: '14px 16px',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-md)',
+                      background: 'var(--surface)',
+                      boxShadow: 'var(--shadow-xs)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className="log-table__mono" style={{ fontWeight: 700, color: 'var(--accent)' }}>
+                          {act.id}
+                        </span>
+                        <span className="badge">{act.model}</span>
+                        <span className="status-pill status-pill--success">200 OK</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '12px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
+                        <span>{act.latencyMs} ms</span>
+                        <span>{act.tokens} tokens</span>
+                        <span>{act.time}</span>
+                      </div>
+                    </div>
+
+                    <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                      "{act.prompt}"
+                    </p>
+
+                    <RouteTrace trace={act.trace} />
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </>

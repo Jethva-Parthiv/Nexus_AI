@@ -16,26 +16,36 @@ import {
 export default function Settings() {
   const { username } = useAuth()
   const [copiedKey, setCopiedKey] = useState(false)
-  const [clientKeys, setClientKeys] = useState([
-    {
-      id: 'key_live_01',
-      name: 'Production Gateway Key',
-      prefix: 'nx_live_••••••••••••9A7e',
-      created: 'Sep 10, 2026',
-      lastUsed: '2 minutes ago',
-    },
-    {
-      id: 'key_test_02',
-      name: 'Development & Test Key',
-      prefix: 'nx_test_••••••••••••4B2d',
-      created: 'Sep 12, 2026',
-      lastUsed: '1 hour ago',
-    },
-  ])
+  const storageKey = 'nexusai_client_keys_' + (username || 'nexususer')
+
+  const [clientKeys, setClientKeys] = useState(() => {
+    const saved = localStorage.getItem(storageKey)
+    if (saved) {
+      try {
+        return JSON.parse(saved)
+      } catch (e) {
+        // fallback
+      }
+    }
+    return [
+      {
+        id: 'key_live_01',
+        name: 'Default Gateway Key',
+        prefix: `nx_live_••••••••••••${Math.random().toString(36).substring(2, 6)}`,
+        created: 'Active',
+        lastUsed: 'Just now',
+      },
+    ]
+  })
 
   const [maxRetries, setMaxRetries] = useState(3)
   const [timeoutMs, setTimeoutMs] = useState(4500)
   const [autoFallback, setAutoFallback] = useState(true)
+
+  function saveKeys(keys) {
+    setClientKeys(keys)
+    localStorage.setItem(storageKey, JSON.stringify(keys))
+  }
 
   function handleCreateClientKey() {
     const newKey = {
@@ -45,15 +55,15 @@ export default function Settings() {
       created: 'Just now',
       lastUsed: 'Never',
     }
-    setClientKeys([...clientKeys, newKey])
+    saveKeys([...clientKeys, newKey])
   }
 
   function handleRevokeKey(id) {
-    setClientKeys(clientKeys.filter((k) => k.id !== id))
+    saveKeys(clientKeys.filter((k) => k.id !== id))
   }
 
   function handleCopyEndpoint() {
-    navigator.clipboard.writeText('http://localhost:8080/v1/chat/completions')
+    navigator.clipboard.writeText('http://localhost:8080/api/chat')
     setCopiedKey(true)
     setTimeout(() => setCopiedKey(false), 1500)
   }
@@ -152,7 +162,7 @@ export default function Settings() {
                 OPENAI-COMPATIBLE ENDPOINT
               </span>
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 600, marginTop: '2px' }}>
-                POST http://localhost:8080/v1/chat/completions
+                POST http://localhost:8080/api/chat
               </div>
             </div>
             <button className="btn btn--secondary btn--small" onClick={handleCopyEndpoint}>
